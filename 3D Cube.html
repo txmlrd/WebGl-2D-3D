@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<meta charset="UTF-8" />
+<html>
+  <head>
+    <title>3D Cube</title>
+    <style>
+      body {
+        background-color: #eeeeee;
+      }
+    </style>
+
+    <script type="x-shader/x-vertex" id="vertex-shader">
+      attribute vec3 a_coords;
+      void main() {
+          vec4 coords = vec4(a_coords, 1.0);
+          gl_Position = coords;
+      }
+    </script>
+
+    <script type="x-shader/x-fragment" id="fragment-shader">
+      #ifdef GL_FRAGMENT_PRECISION_HIGH
+         precision highp float;
+      #else
+         precision mediump float;
+      #endif
+      uniform vec4 color;
+      void main() {
+          gl_FragColor = color;
+      }
+    </script>
+
+    <script src="gl-matrix-min.js"></script>
+    <script>
+      "use strict";
+
+      let gl; // The WebGL context.
+      let a_coords_loc; // Location of the a_coords attribute variable in the shader program.
+      let a_coords_buffer; // Buffer to hold the values for a_coords.
+      let u_color; // Location of the uniform specifying a color for the primitive.
+
+      function drawPrimitive(primitiveType, color, vertices) {
+        gl.enableVertexAttribArray(a_coords_loc);
+        gl.bindBuffer(gl.ARRAY_BUFFER, a_coords_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW);
+        gl.uniform4fv(u_color, color);
+        gl.vertexAttribPointer(a_coords_loc, 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(primitiveType, 0, vertices.length / 3);
+      }
+
+      function draw() {
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Draw colored faces of the cube
+        drawPrimitive(gl.TRIANGLE_FAN, [1, 0, 0, 1], [-0.5, -0.5, -0.6, -0.5, 0.5, -0.5, 0.4, 0.5, -0.5, 0.4, -0.5, -0.5]); // depan
+        drawPrimitive(gl.TRIANGLE_FAN, [0, 0, 1, 1], [0.4, 0.5, -0.5, -0.5, 0.5, -0.5, -0.2, 0.7, 0.5, 0.7, 0.7, 0.5]); // atas
+        drawPrimitive(gl.TRIANGLE_FAN, [1, 1, 0, 1], [-0.2, -0.3, 0.5, -0.2, 0.7, 0.5, 0.7, 0.7, 0.5, 0.7, -0.3, 0.5]); // belakang
+        drawPrimitive(gl.TRIANGLE_FAN, [1, 0, 1, 1], [-0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.2, -0.3, 0.5, -0.2, 0.7, 0.5]); // sisi kiri
+        drawPrimitive(gl.TRIANGLE_FAN, [0, 1, 0, 1], [0.4, 0.5, -0.5, 0.4, -0.5, -0.5, 0.7, -0.3, 0.5, 0.7, 0.7, 0.5]); // sisi kanan
+        drawPrimitive(gl.TRIANGLE_FAN, [0, 1, 1, 1], [-0.5, -0.5, -0.5, -0.2, -0.3, 0.5, 0.7, -0.3, 0.5, 0.4, -0.5, -0.5]); // bawah
+      }
+
+      function initGL() {
+        let program = createProgram(gl, "vertex-shader", "fragment-shader");
+        gl.useProgram(program);
+        a_coords_loc = gl.getAttribLocation(program, "a_coords");
+        u_color = gl.getUniformLocation(program, "color");
+        a_coords_buffer = gl.createBuffer();
+        gl.enable(gl.DEPTH_TEST);
+      }
+
+      function createProgram(gl, vertexShaderID, fragmentShaderID) {
+        function getTextContent(elementID) {
+          let element = document.getElementById(elementID);
+          let node = element.firstChild;
+          let str = "";
+          while (node) {
+            if (node.nodeType === 3) str += node.textContent;
+            node = node.nextSibling;
+          }
+          return str;
+        }
+
+        let vertexShaderSource, fragmentShaderSource;
+        try {
+          vertexShaderSource = getTextContent(vertexShaderID);
+          fragmentShaderSource = getTextContent(fragmentShaderID);
+        } catch (e) {
+          throw new Error("Error: Could not get shader source code from script elements.");
+        }
+
+        let vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, vertexShaderSource);
+        gl.compileShader(vertexShader);
+        if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+          throw new Error("Error in vertex shader: " + gl.getShaderInfoLog(vertexShader));
+        }
+
+        let fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragmentShader, fragmentShaderSource);
+        gl.compileShader(fragmentShader);
+        if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+          throw new Error("Error in fragment shader: " + gl.getShaderInfoLog(fragmentShader));
+        }
+
+        let program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          throw new Error("Link error in program: " + gl.getProgramInfoLog(program));
+        }
+
+        return program;
+      }
+
+      function init() {
+        try {
+          let canvas = document.getElementById("webglcanvas");
+          gl = canvas.getContext("webgl");
+          if (!gl) {
+            throw "Browser does not support WebGL";
+          }
+        } catch (e) {
+          document.getElementById("canvas-holder").innerHTML = "<p>Sorry, could not get a WebGL graphics context.</p>";
+          return;
+        }
+        try {
+          initGL();
+        } catch (e) {
+          document.getElementById("canvas-holder").innerHTML = "<p>Sorry, could not initialize the WebGL graphics context: " + e.message + "</p>";
+          return;
+        }
+
+        draw();
+      }
+
+      window.onload = init;
+    </script>
+  </head>
+  <body>
+    <h2>3D Cube</h2>
+    <h2>I Gusti Agung Ngurah Adhi Sanjaya<br />5025211056</h2>
+    <h2 style="color: red">Inside 3D Cube</h2>
+
+    <noscript
+      ><hr />
+      <h3>This page requires Javascript and a web browser that supports WebGL</h3>
+      <hr
+    /></noscript>
+
+    <div id="canvas-holder">
+      <canvas width="600" height="600" id="webglcanvas"></canvas>
+    </div>
+  </body>
+</html>
